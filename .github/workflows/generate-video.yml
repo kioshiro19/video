@@ -25,12 +25,13 @@ jobs:
 
       - name: Create directories
         run: |
+          if [ -f images ]; then rm images; fi
           test -d images || mkdir images
           test -d output || mkdir output
 
       - name: Check fallback images
         run: |
-          ls -l images/fallback*.jpg
+          ls -l images/fallback*.jpg || echo "No se encontraron imágenes de respaldo"
 
       - name: Generate content
         env:
