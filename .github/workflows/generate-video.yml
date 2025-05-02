@@ -27,6 +27,7 @@ jobs:
       - name: Generate video content and images
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python scripts/generate_content.py
 
       - name: Generate video
