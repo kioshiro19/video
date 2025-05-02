@@ -7,34 +7,27 @@ from PIL import Image
 import io
 import shutil
 
-# Configurar Gemini API
+# Configurar claves API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    print("Error: GEMINI_API_KEY no está configurada")
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+if not GEMINI_API_KEY or not PEXELS_API_KEY:
+    print("Error: Faltan GEMINI_API_KEY o PEXELS_API_KEY")
     exit(1)
+
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Configurar Pexels API
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
-if not PEXELS_API_KEY:
-    print("Error: PEXELS_API_KEY no está configurada")
-    exit(1)
-
-# Verificar carpeta images/ y fallbacks
-if not os.path.exists("images"):
-    print("Creando carpeta images/")
-    os.makedirs("images")
+# Verificar imágenes de respaldo
 for i in range(1, 4):
     if not os.path.exists(f"images/fallback{i}.jpg"):
-        print(f"Error: Fallback image images/fallback{i}.jpg no encontrada")
+        print(f"Error: No se encuentra images/fallback{i}.jpg")
         exit(1)
 
-# Generar guion y palabras clave para imágenes con Gemini
+# Generar guion y palabras clave
 prompt = """
-Crea un guion de 3 minutos para un video educativo sobre el cambio climático. Divide el texto en 3 segmentos de 1 minuto, cada uno con un máximo de 150 palabras. 
-Para cada segmento, proporciona una palabra clave en español para buscar una imagen fotorrealista relacionada (máximo 10 caracteres, relevante al tema).
-Formato de respuesta:
+Crea un guion de 3 minutos sobre cambio climático, dividido en 3 segmentos de 1 minuto (máximo 150 palabras cada uno).
+Para cada segmento, incluye una palabra clave en español (máximo 10 caracteres) para una imagen fotorrealista.
+Formato:
 Segmento 1: [texto]
 Palabra clave 1: [keyword]
 Segmento 2: [texto]
@@ -47,10 +40,10 @@ try:
     segments = response.text.split("\nPalabra clave")[0::2]
     keywords = [k.strip() for k in response.text.split("Palabra clave")[1:]]
 except Exception as e:
-    print(f"Error generando guion con Gemini: {e}")
+    print(f"Error con Gemini: {e}")
     exit(1)
 
-# Generar subtítulos en formato SRT
+# Generar subtítulos SRT
 srt_content = ""
 for i, segment in enumerate(segments, 1):
     start_time = f"00:{(i-1)*60:02d}:00,000"
@@ -60,10 +53,7 @@ for i, segment in enumerate(segments, 1):
 with open("subtitles.srt", "w", encoding="utf-8") as f:
     f.write(srt_content)
 
-# Crear carpeta output/
-os.makedirs("output", exist_ok=True)
-
-# Generar imágenes con Pexels API
+# Generar imágenes con Pexels
 for i, keyword in enumerate(keywords, 1):
     try:
         response = requests.get(
@@ -71,46 +61,41 @@ for i, keyword in enumerate(keywords, 1):
             params={"query": keyword.strip(), "per_page": 1, "orientation": "landscape"},
             headers={"Authorization": PEXELS_API_KEY}
         )
-        if response.status_code == 200:
-            photos = response.json().get("photos", [])
-            if photos:
-                image_url = photos[0]["src"]["large"]
-                image_response = requests.get(image_url)
-                image = Image.open(io.BytesIO(image_response.content))
-                image = image.resize((1920, 1080))
-                image.save(f"images/image{i}.jpg", "JPEG")
-                print(f"Imagen {i} generada con éxito para palabra clave: {keyword}")
-            else:
-                print(f"No se encontraron imágenes para la palabra clave {keyword}, usando fallback")
-                shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
+        if response.status_code == 200 and response.json().get("photos"):
+            image_url = response.json()["photos"][0]["src"]["large"]
+            image_response = requests.get(image_url)
+            image = Image.open(io.BytesIO(image_response.content))
+            image = image.resize((1920, 1080))
+            image.save(f"images/image{i}.jpg", "JPEG")
+            print(f"Imagen {i} generada: {keyword}")
         else:
-            print(f"Error generando imagen {i}: {response.status_code}, usando fallback")
+            print(f"Fallo en Pexels para {keyword}, usando fallback")
             shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
     except Exception as e:
-        print(f"Excepción al generar imagen {i}: {e}, usando fallback")
+        print(f"Error generando imagen {i}: {e}, usando fallback")
         shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
 
-# Generar voz en off con Edge TTS
+# Generar voz con Edge TTS
 async def generate_voice():
     for i, segment in enumerate(segments, 1):
         try:
             communicate = edge_tts.Communicate(segment.strip(), voice="es-ES-ElviraNeural")
             await communicate.save(f"output/voice_segment_{i}.mp3")
-            print(f"Segmento de voz {i} generado con éxito")
+            print(f"Voz {i} generada")
         except Exception as e:
-            print(f"Error generando segmento de voz {i}: {e}")
+            print(f"Error generando voz {i}: {e}")
             exit(1)
 
 asyncio.run(generate_voice())
 
-# Verificar que todos los archivos necesarios existen
+# Verificar archivos generados
 for i in range(1, 4):
     if not os.path.exists(f"images/image{i}.jpg"):
-        print(f"Error: No se encontró images/image{i}.jpg")
+        print(f"Error: No se encuentra images/image{i}.jpg")
         exit(1)
     if not os.path.exists(f"output/voice_segment_{i}.mp3"):
-        print(f"Error: No se encontró output/voice_segment_{i}.mp3")
+        print(f"Error: No se encuentra output/voice_segment_{i}.mp3")
         exit(1)
 if not os.path.exists("subtitles.srt"):
-    print("Error: No se encontró subtitles.srt")
+    print("Error: No se encuentra subtitles.srt")
     exit(1)
