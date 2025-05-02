@@ -2,6 +2,7 @@ import os
 import google.generativeai as genai
 import asyncio
 import edge_tts
+import requests
 from PIL import Image
 import io
 
@@ -36,16 +37,21 @@ for i, segment in enumerate(segments, 1):
 with open("subtitles.srt", "w", encoding="utf-8") as f:
     f.write(srt_content)
 
-# Generar imágenes con Gemini (modelo de imagen, ej. Imagen)
+# Generar imágenes con Craiyon API
 os.makedirs("images", exist_ok=True)
 for i, prompt in enumerate(prompts, 1):
-    image_response = model.generate_content([
-        {"text": f"Genera una imagen fotorrealista basada en: {prompt.strip()}"}
-    ], modality="image")
-    image_data = image_response.image  # Asume que Gemini devuelve datos de imagen
-    image = Image.open(io.BytesIO(image_data))
-    image = image.resize((1920, 1080))  # Asegura resolución 1920x1080
-    image.save(f"images/image{i}.jpg", "JPEG")
+    response = requests.post(
+        "https://api.craiyon.com/v1/images/generations",
+        json={"prompt": prompt.strip()}
+    )
+    if response.status_code == 200:
+        image_data = response.json()["images"][0]["url"]
+        image_response = requests.get(image_data)
+        image = Image.open(io.BytesIO(image_response.content))
+        image = image.resize((1920, 1080))  # Asegura resolución 1920x1080
+        image.save(f"images/image{i}.jpg", "JPEG")
+    else:
+        print(f"Error generando imagen {i}: {response.status_code}")
 
 # Generar voz en off con Edge TTS
 async def generate_voice():
