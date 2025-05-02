@@ -34,6 +34,7 @@ jobs:
         run: |
           ls -l images/
           ls -l output/
+          cat subtitles.srt
 
       - name: Generate video
         run: bash scripts/generate_video.sh
