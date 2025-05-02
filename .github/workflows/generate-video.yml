@@ -39,12 +39,12 @@ jobs:
 
       - name: Debug: List generated files
         run: |
-          echo "Contenido de images/:"
+          echo "Contenido de images/"
           ls -l images/
-          echo "Contenido de output/:"
-          ls -l output/ || echo "Carpeta output/ vacía o no creada"
-          echo "Contenido de subtitles.srt:"
-          cat subtitles.srt || echo "subtitles.srt no encontrado"
+          echo "Contenido de output/"
+          ls -l output/ || echo "Carpeta output/ no existe"
+          echo "Contenido de subtitles.srt"
+          cat subtitles.srt || echo "subtitles.srt no existe"
 
       - name: Generate video
         run: bash scripts/generate_video.sh
