@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install google-generativeai edge-tts
+          pip install google-generativeai edge-tts Pillow
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
