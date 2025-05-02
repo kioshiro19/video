@@ -4,8 +4,8 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 0 * * *' # Ejecuta diariamente a medianoche
-  workflow_dispatch: # Permite ejecución manual
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
   generate-video:
@@ -27,9 +27,8 @@ jobs:
 
       - name: Verify images folder
         run: |
-          ls -l images/ || echo "Carpeta images/ no encontrada, creándola"
           mkdir -p images
-          ls -l images/
+          ls -l images
 
       - name: Generate video content and images
         env:
@@ -37,14 +36,20 @@ jobs:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python scripts/generate_content.py
 
-      - name: Debug: List generated files
+      - name: Debug: List images
         run: |
-          echo "Contenido de images/"
-          ls -l images/
-          echo "Contenido de output/"
-          ls -l output/ || echo "Carpeta output/ no existe"
+          echo "Contenido de images"
+          ls -l images
+
+      - name: Debug: List output
+        run: |
+          echo "Contenido de output"
+          ls -l output || true
+
+      - name: Debug: Show subtitles
+        run: |
           echo "Contenido de subtitles.srt"
-          cat subtitles.srt || echo "subtitles.srt no existe"
+          cat subtitles.srt || true
 
       - name: Generate video
         run: bash scripts/generate_video.sh
