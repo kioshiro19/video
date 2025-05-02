@@ -21,6 +21,15 @@ if not PEXELS_API_KEY:
     print("Error: PEXELS_API_KEY no está configurada")
     exit(1)
 
+# Verificar carpeta images/ y fallbacks
+if not os.path.exists("images"):
+    print("Creando carpeta images/")
+    os.makedirs("images")
+for i in range(1, 4):
+    if not os.path.exists(f"images/fallback{i}.jpg"):
+        print(f"Error: Fallback image images/fallback{i}.jpg no encontrada")
+        exit(1)
+
 # Generar guion y palabras clave para imágenes con Gemini
 prompt = """
 Crea un guion de 3 minutos para un video educativo sobre el cambio climático. Divide el texto en 3 segmentos de 1 minuto, cada uno con un máximo de 150 palabras. 
@@ -51,8 +60,7 @@ for i, segment in enumerate(segments, 1):
 with open("subtitles.srt", "w", encoding="utf-8") as f:
     f.write(srt_content)
 
-# Crear carpetas necesarias
-os.makedirs("images", exist_ok=True)
+# Crear carpeta output/
 os.makedirs("output", exist_ok=True)
 
 # Generar imágenes con Pexels API
