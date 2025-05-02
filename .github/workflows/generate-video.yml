@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   schedule:
     - cron: '0 0 * * *' # Ejecuta diariamente a medianoche
+  workflow_dispatch: # Permite ejecución manual
 
 jobs:
   generate-video:
@@ -24,6 +25,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
 
+      - name: Verify images folder
+        run: |
+          ls -l images/ || echo "Carpeta images/ no encontrada, creándola"
+          mkdir -p images
+          ls -l images/
+
       - name: Generate video content and images
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -32,9 +39,12 @@ jobs:
 
       - name: Debug: List generated files
         run: |
+          echo "Contenido de images/:"
           ls -l images/
-          ls -l output/
-          cat subtitles.srt
+          echo "Contenido de output/:"
+          ls -l output/ || echo "Carpeta output/ vacía o no creada"
+          echo "Contenido de subtitles.srt:"
+          cat subtitles.srt || echo "subtitles.srt no encontrado"
 
       - name: Generate video
         run: bash scripts/generate_video.sh
