@@ -30,6 +30,11 @@ jobs:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         run: python scripts/generate_content.py
 
+      - name: Debug: List generated files
+        run: |
+          ls -l images/
+          ls -l output/
+
       - name: Generate video
         run: bash scripts/generate_video.sh
 
