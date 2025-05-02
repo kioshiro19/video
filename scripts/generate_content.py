@@ -44,8 +44,8 @@ Palabra clave 3: [keyword]
 """
 try:
     response = model.generate_content(prompt)
-    segments = response.text.split("\nPalabra clave")[0::2]  # Extrae segmentos
-    keywords = [k.strip() for k in response.text.split("Palabra clave")[1:]]  # Extrae palabras clave
+    segments = response.text.split("\nPalabra clave")[0::2]
+    keywords = [k.strip() for k in response.text.split("Palabra clave")[1:]]
 except Exception as e:
     print(f"Error generando guion con Gemini: {e}")
     exit(1)
@@ -77,7 +77,7 @@ for i, keyword in enumerate(keywords, 1):
                 image_url = photos[0]["src"]["large"]
                 image_response = requests.get(image_url)
                 image = Image.open(io.BytesIO(image_response.content))
-                image = image.resize((1920, 1080))  # Asegura resolución 1920x1080
+                image = image.resize((1920, 1080))
                 image.save(f"images/image{i}.jpg", "JPEG")
                 print(f"Imagen {i} generada con éxito para palabra clave: {keyword}")
             else:
