@@ -11,21 +11,24 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# Generar guion y prompts para imágenes con Gemini
+# Configurar Pexels API
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+
+# Generar guion y palabras clave para imágenes con Gemini
 prompt = """
 Crea un guion de 3 minutos para un video educativo sobre el cambio climático. Divide el texto en 3 segmentos de 1 minuto, cada uno con un máximo de 150 palabras. 
-Para cada segmento, proporciona un prompt en español para generar una imagen fotorrealista relacionada (máximo 50 palabras, resolución 1920x1080, estilo fotorrealista).
+Para cada segmento, proporciona una palabra clave en español para buscar una imagen fotorrealista relacionada (máximo 10 caracteres, relevante al tema).
 Formato de respuesta:
 Segmento 1: [texto]
-Prompt imagen 1: [prompt]
+Palabra clave 1: [keyword]
 Segmento 2: [texto]
-Prompt imagen 2: [prompt]
+Palabra clave 2: [keyword]
 Segmento 3: [texto]
-Prompt imagen 3: [prompt]
+Palabra clave 3: [keyword]
 """
 response = model.generate_content(prompt)
-segments = response.text.split("\nPrompt imagen")[0::2]  # Extrae segmentos
-prompts = [p.strip() for p in response.text.split("Prompt imagen")[1:]]  # Extrae prompts
+segments = response.text.split("\nPalabra clave")[0::2]  # Extrae segmentos
+keywords = [k.strip() for k in response.text.split("Palabra clave")[1:]]  # Extrae palabras clave
 
 # Generar subtítulos en formato SRT
 srt_content = ""
@@ -37,19 +40,27 @@ for i, segment in enumerate(segments, 1):
 with open("subtitles.srt", "w", encoding="utf-8") as f:
     f.write(srt_content)
 
-# Generar imágenes con Craiyon API
+# Crear carpetas necesarias
 os.makedirs("images", exist_ok=True)
-for i, prompt in enumerate(prompts, 1):
-    response = requests.post(
-        "https://api.craiyon.com/v1/images/generations",
-        json={"prompt": prompt.strip()}
+os.makedirs("output", exist_ok=True)
+
+# Generar imágenes con Pexels API
+for i, keyword in enumerate(keywords, 1):
+    response = requests.get(
+        "https://api.pexels.com/v1/search",
+        params={"query": keyword.strip(), "per_page": 1, "orientation": "landscape"},
+        headers={"Authorization": PEXELS_API_KEY}
     )
     if response.status_code == 200:
-        image_data = response.json()["images"][0]["url"]
-        image_response = requests.get(image_data)
-        image = Image.open(io.BytesIO(image_response.content))
-        image = image.resize((1920, 1080))  # Asegura resolución 1920x1080
-        image.save(f"images/image{i}.jpg", "JPEG")
+        photos = response.json().get("photos", [])
+        if photos:
+            image_url = photos[0]["src"]["large"]
+            image_response = requests.get(image_url)
+            image = Image.open(io.BytesIO(image_response.content))
+            image = image.resize((1920, 1080))  # Asegura resolución 1920x1080
+            image.save(f"images/image{i}.jpg", "JPEG")
+        else:
+            print(f"No se encontraron imágenes para la palabra clave {keyword}")
     else:
         print(f"Error generando imagen {i}: {response.status_code}")
 
