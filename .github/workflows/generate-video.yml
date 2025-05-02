@@ -25,7 +25,8 @@ jobs:
 
       - name: Create directories
         run: |
-          mkdir -p images output
+          test -d images || mkdir images
+          test -d output || mkdir output
 
       - name: Check fallback images
         run: |
