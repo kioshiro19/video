@@ -7,12 +7,12 @@ from PIL import Image
 import io
 
 # Configurar Gemini API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("AIzaSyBO5CuTMECW-35h6pCKbn9cfUdfHSQlMJA")
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 # Configurar Pexels API
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+PEXELS_API_KEY = os.getenv("zb0iInbJryadQvGAFX8L1W22I38ns3wAPXXeSP6quQE3QfZQF8KzWOb2")
 
 # Imágenes de respaldo (enlaces públicos de Pexels, sin API)
 FALLBACK_IMAGES = [
