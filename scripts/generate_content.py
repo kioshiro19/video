@@ -5,21 +5,21 @@ import edge_tts
 import requests
 from PIL import Image
 import io
+import shutil
 
 # Configurar Gemini API
-GEMINI_API_KEY = os.getenv("AIzaSyBO5CuTMECW-35h6pCKbn9cfUdfHSQlMJA")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    print("Error: GEMINI_API_KEY no está configurada")
+    exit(1)
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 # Configurar Pexels API
-PEXELS_API_KEY = os.getenv("zb0iInbJryadQvGAFX8L1W22I38ns3wAPXXeSP6quQE3QfZQF8KzWOb2")
-
-# Imágenes de respaldo (enlaces públicos de Pexels, sin API)
-FALLBACK_IMAGES = [
-    "https://images.pexels.com/photos/414171/pexels-photo-414171.jpeg",
-    "https://images.pexels.com/photos/1632790/pexels-photo-1632790.jpeg",
-    "https://images.pexels.com/photos/518543/pexels-photo-518543.jpeg"
-]
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+if not PEXELS_API_KEY:
+    print("Error: PEXELS_API_KEY no está configurada")
+    exit(1)
 
 # Generar guion y palabras clave para imágenes con Gemini
 prompt = """
@@ -73,23 +73,14 @@ for i, keyword in enumerate(keywords, 1):
                 image.save(f"images/image{i}.jpg", "JPEG")
                 print(f"Imagen {i} generada con éxito para palabra clave: {keyword}")
             else:
-                print(f"No se encontraron imágenes para la palabra clave {keyword}, usando imagen de respaldo")
-                image_response = requests.get(FALLBACK_IMAGES[i-1])
-                image = Image.open(io.BytesIO(image_response.content))
-                image = image.resize((1920, 1080))
-                image.save(f"images/image{i}.jpg", "JPEG")
+                print(f"No se encontraron imágenes para la palabra clave {keyword}, usando fallback")
+                shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
         else:
-            print(f"Error generando imagen {i}: {response.status_code}, usando imagen de respaldo")
-            image_response = requests.get(FALLBACK_IMAGES[i-1])
-            image = Image.open(io.BytesIO(image_response.content))
-            image = image.resize((1920, 1080))
-            image.save(f"images/image{i}.jpg", "JPEG")
+            print(f"Error generando imagen {i}: {response.status_code}, usando fallback")
+            shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
     except Exception as e:
-        print(f"Excepción al generar imagen {i}: {e}, usando imagen de respaldo")
-        image_response = requests.get(FALLBACK_IMAGES[i-1])
-        image = Image.open(io.BytesIO(image_response.content))
-        image = image.resize((1920, 1080))
-        image.save(f"images/image{i}.jpg", "JPEG")
+        print(f"Excepción al generar imagen {i}: {e}, usando fallback")
+        shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
 
 # Generar voz en off con Edge TTS
 async def generate_voice():
@@ -112,3 +103,6 @@ for i in range(1, 4):
     if not os.path.exists(f"output/voice_segment_{i}.mp3"):
         print(f"Error: No se encontró output/voice_segment_{i}.mp3")
         exit(1)
+if not os.path.exists("subtitles.srt"):
+    print("Error: No se encontró subtitles.srt")
+    exit(1)
