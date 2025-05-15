@@ -1,101 +1,77 @@
 import os
-import google.generativeai as genai
-import asyncio
-import edge_tts
 import requests
-from PIL import Image
-import io
-import shutil
+from gtts import gTTS
+from moviepy.editor import ImageSequenceClip, AudioFileClip
 
-# Configurar claves API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
-if not GEMINI_API_KEY or not PEXELS_API_KEY:
-    print("Error: Faltan GEMINI_API_KEY o PEXELS_API_KEY")
-    exit(1)
+# Claves de las APIs
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+PEXELS_API_KEY = os.getenv('PEXELS_API_KEY')
 
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+# Función para obtener el guion desde Gemini API
+def get_script(topic):
+    url = "https://api.gemini.com/generate"
+    payload = {"topic": topic, "length": "short"}
+    headers = {"Authorization": f"Bearer {GEMINI_API_KEY}"}
+    response = requests.post(url, json=payload, headers=headers)
+    response.raise_for_status()
+    return response.json()["content"]
 
-# Verificar imágenes de respaldo
-for i in range(1, 4):
-    if not os.path.exists(f"images/fallback{i}.jpg"):
-        print(f"Error: No se encuentra images/fallback{i}.jpg")
-        exit(1)
+# Función para obtener imágenes desde Pexels API
+def get_images(topic):
+    url = f"https://api.pexels.com/v1/search?query={topic}&per_page=10"
+    headers = {"Authorization": PEXELS_API_KEY}
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return [photo["src"]["large"] for photo in response.json()["photos"]]
 
-# Generar guion y palabras clave
-prompt = """
-Crea un guion de 3 minutos sobre cambio climático, dividido en 3 segmentos de 1 minuto (máximo 150 palabras cada uno).
-Para cada segmento, incluye una palabra clave en español (máximo 10 caracteres) para una imagen fotorrealista.
-Formato:
-Segmento 1: [texto]
-Palabra clave 1: [keyword]
-Segmento 2: [texto]
-Palabra clave 2: [keyword]
-Segmento 3: [texto]
-Palabra clave 3: [keyword]
-"""
-try:
-    response = model.generate_content(prompt)
-    segments = response.text.split("\nPalabra clave")[0::2]
-    keywords = [k.strip() for k in response.text.split("Palabra clave")[1:]]
-except Exception as e:
-    print(f"Error con Gemini: {e}")
-    exit(1)
+# Función para descargar imágenes
+def download_images(image_urls):
+    os.makedirs("images", exist_ok=True)
+    image_paths = []
+    for i, url in enumerate(image_urls):
+        response = requests.get(url)
+        path = f"images/image_{i}.jpg"
+        with open(path, "wb") as f:
+            f.write(response.content)
+        image_paths.append(path)
+    return image_paths
 
-# Generar subtítulos SRT
-srt_content = ""
-for i, segment in enumerate(segments, 1):
-    start_time = f"00:{(i-1)*60:02d}:00,000"
-    end_time = f"00:{i*60:02d}:00,000"
-    srt_content += f"{i}\n{start_time} --> {end_time}\n{segment.strip()}\n\n"
+# Función para generar voz en off
+def generate_voiceover(script):
+    tts = gTTS(text=script, lang="es")
+    voice_path = "voiceover.mp3"
+    tts.save(voice_path)
+    return voice_path
 
-with open("subtitles.srt", "w", encoding="utf-8") as f:
-    f.write(srt_content)
+# Función para generar subtítulos
+def generate_subtitles(script):
+    subtitles_path = "subtitles.srt"
+    with open(subtitles_path, "w") as f:
+        f.write("1\n00:00:00,000 --> 00:00:10,000\n" + script)
+    return subtitles_path
 
-# Generar imágenes con Pexels
-for i, keyword in enumerate(keywords, 1):
-    try:
-        response = requests.get(
-            "https://api.pexels.com/v1/search",
-            params={"query": keyword.strip(), "per_page": 1, "orientation": "landscape"},
-            headers={"Authorization": PEXELS_API_KEY}
-        )
-        if response.status_code == 200 and response.json().get("photos"):
-            image_url = response.json()["photos"][0]["src"]["large"]
-            image_response = requests.get(image_url)
-            image = Image.open(io.BytesIO(image_response.content))
-            image = image.resize((1920, 1080))
-            image.save(f"images/image{i}.jpg", "JPEG")
-            print(f"Imagen {i} generada: {keyword}")
-        else:
-            print(f"Fallo en Pexels para {keyword}, usando fallback")
-            shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
-    except Exception as e:
-        print(f"Error generando imagen {i}: {e}, usando fallback")
-        shutil.copy(f"images/fallback{i}.jpg", f"images/image{i}.jpg")
+# Función para ensamblar el video
+def assemble_video(image_paths, voiceover_path):
+    clip = ImageSequenceClip(image_paths, fps=1)  # 1 imagen por segundo
+    audio = AudioFileClip(voiceover_path)
+    clip = clip.set_audio(audio)
+    os.makedirs("output", exist_ok=True)
+    output_path = "output/video.mp4"
+    clip.write_videofile(output_path, codec="libx264", audio_codec="aac")
+    return output_path
 
-# Generar voz con Edge TTS
-async def generate_voice():
-    for i, segment in enumerate(segments, 1):
-        try:
-            communicate = edge_tts.Communicate(segment.strip(), voice="es-ES-ElviraNeural")
-            await communicate.save(f"output/voice_segment_{i}.mp3")
-            print(f"Voz {i} generada")
-        except Exception as e:
-            print(f"Error generando voz {i}: {e}")
-            exit(1)
+if __name__ == "__main__":
+    topic = os.getenv("INPUT_TOPIC", "la depresión")
+    script = get_script(topic)
+    print("Guion generado:", script)
 
-asyncio.run(generate_voice())
+    print("Descargando imágenes...")
+    image_urls = get_images(topic)
+    image_paths = download_images(image_urls)
 
-# Verificar archivos generados
-for i in range(1, 4):
-    if not os.path.exists(f"images/image{i}.jpg"):
-        print(f"Error: No se encuentra images/image{i}.jpg")
-        exit(1)
-    if not os.path.exists(f"output/voice_segment_{i}.mp3"):
-        print(f"Error: No se encuentra output/voice_segment_{i}.mp3")
-        exit(1)
-if not os.path.exists("subtitles.srt"):
-    print("Error: No se encuentra subtitles.srt")
-    exit(1)
+    print("Generando voz en off...")
+    voiceover_path = generate_voiceover(script)
+
+    print("Creando video...")
+    video_path = assemble_video(image_paths, voiceover_path)
+    print("Video generado:", video_path)
