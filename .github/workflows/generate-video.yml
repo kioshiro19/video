@@ -2,11 +2,6 @@ name: Generar Video para YouTube
 
 on:
   workflow_dispatch:
-    inputs:
-      topic:
-        description: "Tema del video"
-        required: true
-        default: "la depresión"
 
 jobs:
   generate-video:
@@ -18,19 +13,15 @@ jobs:
 
     - name: Configurar dependencias
       run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        sudo apt-get update && sudo apt-get install -y ffmpeg
         python3 -m pip install --upgrade pip
         pip install requests gtts moviepy
 
     - name: Generar el video
-      env:
-        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
       run: |
-        python3 scripts/create_video.py "${{ github.event.inputs.topic }}"
+        python3 scripts/create_video.py "la depresión"
 
-    - name: Subir el video como artefacto
+    - name: Subir artefactos
       uses: actions/upload-artifact@v3
       with:
         name: video-final
