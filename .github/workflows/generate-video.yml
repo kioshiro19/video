@@ -1,55 +1,37 @@
-name: Generate Automated Video
+name: Generar Video para YouTube
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+    inputs:
+      topic:
+        description: "Tema del video"
+        required: true
+        default: "la depresión"
 
 jobs:
   generate-video:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Chequear el repositorio
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Configurar dependencias
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+        python3 -m pip install --upgrade pip
+        pip install requests gtts moviepy
 
-      - name: Install dependencies
-        run: |
-          pip install google-generativeai edge-tts Pillow requests
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+    - name: Generar el video
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      run: |
+        python3 scripts/create_video.py "${{ github.event.inputs.topic }}"
 
-      - name: Create directories
-        run: |
-          if [ -f images ]; then rm images; fi
-          test -d images || mkdir images
-          test -d output || mkdir output
-
-      - name: Check fallback images
-        run: |
-          ls -l images/fallback*.jpg || echo "No se encontraron imágenes de respaldo"
-
-      - name: Generate content
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-        run: python scripts/generate_content.py
-
-      - name: Debug files
-        run: |
-          ls -l images
-          ls -l output
-          cat subtitles.srt
-
-      - name: Generate video
-        run: bash scripts/generate_video.sh
-
-      - name: Upload video
-        uses: actions/upload-artifact@v4
-        with:
-          name: generated-video
-          path: output/final_video.mp4
+    - name: Subir el video como artefacto
+      uses: actions/upload-artifact@v3
+      with:
+        name: video-final
+        path: output/video.mp4
